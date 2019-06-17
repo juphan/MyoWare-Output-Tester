@@ -111,9 +111,9 @@ void Init_ADC(void){
 void ADC1_Handler(void){
 	// Read EMG values from Myoware sensor (PE1)
 	ADCIntClear(ADC1_BASE, 2);                // Clear interrupt flag
-	ADCSequenceDataGet(ADC1_BASE, 2, result); // Get data
+	ADCSequenceDataGet(ADC1_BASE, 2, result); // Get ADC values
 	
-	// Send string to UART
+	// Send ADC values to UART
 	sprintf(buffer, "%d,%d\n", result[0], result[1]);
 	UART_OutString(buffer);
 }
