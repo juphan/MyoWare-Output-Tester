@@ -113,7 +113,7 @@ void ADC1_Handler(void){
 	ADCIntClear(ADC1_BASE, 2);                // Clear interrupt flag
 	ADCSequenceDataGet(ADC1_BASE, 2, result); // Get ADC values
 	
-	// Send ADC values from PE3 and PE2 to UART
+	// Take ADC values from PE3 and PE2 and send to UART
 	sprintf(buffer, "%d,%d\n", result[0], result[1]);
 	UART_OutString(buffer);
 }
