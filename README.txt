@@ -1,5 +1,6 @@
-Tiva Code:
-----------
+# Tiva Code for the MyoWare Muscle Sensors:
+A Keil uVision project that uses C code to program a TM4C123GH6PM microcontroller to collect data from multiple MyoWare muscle sensors and then send the results to a PC through the UART.
+
 (+) Place project folder in your "my_project" folder 
 (+) Uses the ADC on the Tiva Launchpad to sample data from electrode sensors (500 Hz)
 (+) Code allows you to connect to 4 electrode sensors
