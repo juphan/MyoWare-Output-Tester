@@ -13,6 +13,12 @@ A Keil uVision project that uses C code to program a TM4C123GH6PM microcontrolle
 
   Connect the "+" and "-" pins on the MyoWare sensors to VBUS and GND 
     
+- In order to make predictions, collect data and then run the associated MATLAB program
+
+  to generate weights for the LDA model. Then, copy the weights into the Keil uVision
+
+  program (Wg and Cg).
+
 - In ADC1_Handler, uncomment "UART_OutString" function to send sampled data to PC
 
   In Timer1A_Handler, uncomment "UART_OutString" function to send predictions to PC
