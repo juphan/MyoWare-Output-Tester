@@ -79,6 +79,7 @@ __heap_limit
 ;
 ;******************************************************************************
         EXTERN  ADC1_Handler;
+		EXTERN  Timer1A_Handler
 		
 		EXPORT  __Vectors
 __Vectors
@@ -119,7 +120,7 @@ __Vectors
         DCD     IntDefaultHandler           ; Watchdog timer
         DCD     IntDefaultHandler           ; Timer 0 subtimer A
         DCD     IntDefaultHandler           ; Timer 0 subtimer B
-        DCD     IntDefaultHandler           ; Timer 1 subtimer A
+        DCD     Timer1A_Handler             ; Timer 1 subtimer A
         DCD     IntDefaultHandler           ; Timer 1 subtimer B
         DCD     IntDefaultHandler           ; Timer 2 subtimer A
         DCD     IntDefaultHandler           ; Timer 2 subtimer B

@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
 #include "main.h"
 #include "driverlib/adc.h"
 #include "driverlib/interrupt.h"
@@ -10,28 +13,42 @@
 #include "driverlib/timer.h"
 #include "utils/uartstdio.c"
 
-//*****************************************************************************
-// Instructions
-/* 1) Solder a 3-pin female pin headers onto the MyoWare sensor 
-      (on the +, -, and SIG side) and/or (on the RAW, SHID, and GND side) 
-   2) Make the following connections:
-      + -> +3.3V
-	    - -> GND
-      SIG -> PE3 (Rectified Signal) or RAW -> PE3 (Raw Signal) 
-   3) Connect the electrode pads to the MyoWare sensor and connect to your arm
-	    - Longitudinal on the muscle of interest
-			- Place the reference electrode on a neutral area (bony area)
-	 4) Load onto the Tiva Board
-	 5) Start up the Data Logger program and let the EMG data be logged 
-*/
+#define ROWS 8
+#define COLUMNS 5
 
 //*****************************************************************************
 // Global variables
-uint32_t result[4];      // Array of ADC readings (SS2 array has depth of 4) 
+unsigned int r[4];       // Array of ADC readings (SS2 array has depth of 4) 
 char buffer[40];         // String sent to UART
+
+unsigned int emg0[100];     // fs = 500Hz = 500 data points/s
+unsigned int emg1[100];     // wl = 200ms = 100 data points
+unsigned int emg2[100];
+unsigned int emg3[100];
+
+int wl = sizeof(emg0)/sizeof(unsigned int);
+
+unsigned int emg0T[100];    // Saves a window of data for feature extraction
+unsigned int emg1T[100];
+unsigned int emg2T[100];
+unsigned int emg3T[100];
+
+int counter = 0;   // Used to move data points in/out of analysis window
+
+double feats[ROWS];  // Feature vector
+
+double Wg[ROWS*COLUMNS] = {};
+double Cg[COLUMNS] = {};
+	
+double prob[COLUMNS]; // Prob. of calculated feature vector belonging to each gesture class
+int offset;
+	
+double p_max;   // Max prob. 
+int prediction; // Final predicted gesture
 
 //*****************************************************************************
 // Valvano functions
+	
 //------------UART_OutChar------------
 // Output 8-bit to serial port
 // Input: letter is an 8-bit ASCII character to be transferred
@@ -97,7 +114,7 @@ void Init_ADC(void){
 	// Set Timer0A for ADC interrupt
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
 	TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC); // Periodic
-	TimerLoadSet(TIMER0_BASE, TIMER_A, 200000);      // Set period at (1sample/0.005s)=200Hz 
+	TimerLoadSet(TIMER0_BASE, TIMER_A, 160000);      // Set period at (1sample/500Hz)=0.002s 
 	TimerControlTrigger(TIMER0_BASE, TIMER_A, true); // Enable Timer0A for ADC timer-sampling
 	TimerEnable(TIMER0_BASE, TIMER_A);               // Enable Timer0A
 	
@@ -106,27 +123,139 @@ void Init_ADC(void){
   ADCIntClear(ADC1_BASE, 2);       // Clear interrupt status flag
 }
 
+void Init_Timer(unsigned long period){
+	//Set Timer1A to be periodic
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
+	TimerConfigure(TIMER1_BASE, TIMER_CFG_PERIODIC);
+	TimerLoadSet(TIMER1_BASE, TIMER_A, period-1);
+	IntPrioritySet(INT_TIMER1A, 0x01);  // Periodic Interrupt priority set to 1
+	IntEnable(INT_TIMER1A);             // Enable interrupt
+	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+	TimerEnable(TIMER1_BASE, TIMER_A);
+}
+
 //*****************************************************************************
 // Interrupt Handlers
 void ADC1_Handler(void){
-	// Read EMG values from Myoware sensor (PE3 - PE0)
-	ADCIntClear(ADC1_BASE, 2);                // Clear interrupt flag
-	ADCSequenceDataGet(ADC1_BASE, 2, result); // Get ADC values
+	// Clear interrupt flag
+	ADCIntClear(ADC1_BASE, 2);
 	
-	// Take ADC values from PE3 and PE2 and send to UART
-	sprintf(buffer, "%d,%d\n", result[0], result[1]);
+	// Read EMG values from Myoware sensor (PE3 - PE0)
+	ADCSequenceDataGet(ADC1_BASE, 2, r);
+	
+	// Fill window of data
+	if(counter == 100){
+		counter = counter - 1;
+		for(int i=0; i<(wl-1); i++){
+			emg0[i] = emg0[i+1];
+			emg1[i] = emg1[i+1];
+			emg2[i] = emg2[i+1];
+			emg3[i] = emg3[i+1];
+		}
+	}
+	
+	emg0[counter] = r[0];
+	emg1[counter] = r[1];
+	emg2[counter] = r[2];
+	emg3[counter] = r[3];
+	
+	counter = counter + 1;
+	
+	// Take ADC values from PE3-PE0 and send to UART
+	sprintf(buffer, "%d,%d,%d,%d\n", r[0], r[1], r[2], r[3]);
 	UART_OutString(buffer);
+	
+}
+
+void Timer1A_Handler(void){
+  //Clear interrupt flag
+	TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+	
+	// Copy window of data
+	memcpy(emg0T, emg0, sizeof(emg0));
+	memcpy(emg1T, emg1, sizeof(emg1));
+	memcpy(emg2T, emg2, sizeof(emg2));
+	memcpy(emg3T, emg3, sizeof(emg3));
+	
+	// Reset feature/probability matrices
+	memset(feats, 0, sizeof(feats));
+	memset(prob, 0, sizeof(prob));
+	
+	// MAV
+	for (int i=0; i<wl; i++){
+		feats[0] = feats[0] + (double)emg0T[i];
+		feats[1] = feats[1] + (double)emg1T[i];
+		feats[2] = feats[2] + (double)emg2T[i];
+		feats[3] = feats[3] + (double)emg3T[i];
+	}
+	
+	feats[0] = feats[0]/wl;
+	feats[1] = feats[1]/wl;
+	feats[2] = feats[2]/wl;
+	feats[3] = feats[3]/wl;
+	
+	// WAV
+	for (int i=0; i<(wl-1); i++){
+		feats[4] = feats[4] + abs(emg0T[i]-emg0T[i+1]);
+		feats[5] = feats[5] + abs(emg1T[i]-emg1T[i+1]);
+		feats[6] = feats[6] + abs(emg2T[i]-emg2T[i+1]);
+		feats[7] = feats[7] + abs(emg3T[i]-emg3T[i+1]);
+	}
+	
+	feats[4] = feats[4]/(wl-1);
+	feats[5] = feats[5]/(wl-1);
+	feats[6] = feats[6]/(wl-1);
+	feats[7] = feats[7]/(wl-1);
+	
+	// LDA_Predict
+	offset = 0;
+	for (int i=0; i<COLUMNS; i++){
+		for(int j=0; j<ROWS; j++){
+			prob[i] = prob[i] + feats[j]*Wg[j+offset];
+		}
+		offset = offset + ROWS;
+		prob[i] = prob[i] + Cg[i];
+	}
+	
+	// Make decision
+	p_max = prob[0];
+	prediction = 1;
+	
+	if (prob[1]>p_max){
+		p_max = prob[1];
+		prediction = 2;
+	}
+	if (prob[2]>p_max){
+		p_max = prob[2];
+		prediction = 3;
+	}
+	if (prob[3]>p_max){
+		p_max = prob[3];
+		prediction = 4;
+	}
+	if (prob[4]>p_max){
+		p_max = prob[4];
+		prediction = 5;
+	}
+	
+	// Send predictions to Tera Term
+	sprintf(buffer, "%d\t\t\t\t\t\t\t\t\t\t\n", prediction);
+	//UART_OutString(buffer);
+	
 }
 
 //*****************************************************************************
 // Main
 int main(void){
-	// Set 40Mhz clock
-	SysCtlClockSet(SYSCTL_SYSDIV_5|SYSCTL_USE_PLL|SYSCTL_OSC_MAIN|SYSCTL_XTAL_16MHZ);
+	// Set 80Mhz clock
+	SysCtlClockSet(SYSCTL_SYSDIV_2_5|SYSCTL_USE_PLL|SYSCTL_OSC_MAIN|SYSCTL_XTAL_16MHZ);
+	
+	IntPriorityGroupingSet(0x03);  
 	
 	// Initialize
 	Init_UART();
 	Init_ADC();
+	Init_Timer(8000000);  // wi = 100ms
 	IntMasterEnable();             
 	
 	// Forever while loop
