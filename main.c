@@ -14,7 +14,7 @@
 #include "utils/uartstdio.c"
 
 #define ROWS 8
-#define COLUMNS 5
+#define COLUMNS 7
 
 //*****************************************************************************
 // Global variables
@@ -236,6 +236,14 @@ void Timer1A_Handler(void){
 	if (prob[4]>p_max){
 		p_max = prob[4];
 		prediction = 5;
+	}
+	if (prob[5]>p_max){
+		p_max = prob[5];
+		prediction = 6;
+	}
+	if (prob[6]>p_max){
+		p_max = prob[6];
+		prediction = 7;
 	}
 	
 	// Send predictions to Tera Term
