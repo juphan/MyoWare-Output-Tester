@@ -6,6 +6,7 @@
 .\objects\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
 .\objects\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\math.h
 .\objects\main.o: main.h
+.\objects\main.o: ..\..\..\..\inc/hw_gpio.h
 .\objects\main.o: ..\..\..\..\driverlib/adc.h
 .\objects\main.o: ..\..\..\..\driverlib/interrupt.h
 .\objects\main.o: ..\..\..\..\driverlib/uart.h
@@ -23,3 +24,4 @@
 .\objects\main.o: ..\..\..\..\driverlib/rom_map.h
 .\objects\main.o: ..\..\..\..\driverlib/sysctl.h
 .\objects\main.o: ..\..\..\..\utils/uartstdio.h
+.\objects\main.o: ..\..\..\..\inc/tm4c123gh6pm.h

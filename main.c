@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "main.h"
+#include "inc/hw_gpio.h"
 #include "driverlib/adc.h"
 #include "driverlib/interrupt.h"
 #include "driverlib/uart.h"
@@ -12,6 +13,7 @@
 #include "driverlib/pin_map.h"
 #include "driverlib/timer.h"
 #include "utils/uartstdio.c"
+#include "inc/tm4c123gh6pm.h"
 
 #define ROWS 8
 #define COLUMNS 7
@@ -41,10 +43,11 @@ double Wg[ROWS*COLUMNS] = {};
 double Cg[COLUMNS] = {};
 	
 double prob[COLUMNS]; // Prob. of calculated feature vector belonging to each gesture class
-int offset;
 	
 double p_max;   // Max prob. 
 int prediction; // Final predicted gesture
+	
+int bOut = 0;  // Output setting to UART determined by button pressed
 
 //*****************************************************************************
 // Valvano functions
@@ -70,18 +73,39 @@ void UART_OutString(char *pt){
 
 //*****************************************************************************
 // Initialize
+void Init_Buttons(void){
+	// Enable Peripheral Clocks 
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+
+	//First open the lock and select the bits we want to modify in the GPIO commit register.
+  HWREG(GPIO_PORTF_BASE + GPIO_O_LOCK) = GPIO_LOCK_KEY;
+  HWREG(GPIO_PORTF_BASE + GPIO_O_CR) = 0x1;
+	
+  // Enable pin PF1-PF3 for GPIOOutput (LED lights RBG)
+  GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
+
+  // Enable pin PF0 and PF4 for GPIOInput (SW1 and SW2)
+  GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_0 | GPIO_PIN_4);
+	
+	//Enable pull-up on PF0
+	GPIO_PORTF_PUR_R |= 0x11; 
+	
+	// Turn on red light
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0x02);
+}
+
 void Init_UART(void){
-    // Enable Peripheral Clocks
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+  // Enable Peripheral Clocks
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
 
-	  // Configure pins (PA0->U0Rx) and (PA1->U0Tx)
-    GPIOPinConfigure(GPIO_PA0_U0RX);
-    GPIOPinConfigure(GPIO_PA1_U0TX);
-    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+  // Configure pins (PA0->U0Rx) and (PA1->U0Tx)
+  GPIOPinConfigure(GPIO_PA0_U0RX);
+  GPIOPinConfigure(GPIO_PA1_U0TX);
+  GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 
-    // Configure UART
-    UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200, (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+  // Configure UART
+  UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200, (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
 }
 
 void Init_ADC(void){
@@ -162,8 +186,10 @@ void ADC1_Handler(void){
 	counter = counter + 1;
 	
 	// Take ADC values from PE3-PE0 and send to UART
-	sprintf(buffer, "%d,%d,%d,%d\n", r[0], r[1], r[2], r[3]);
-	UART_OutString(buffer);
+	if(bOut == 0){
+		sprintf(buffer, "%d,%d,%d,%d\n", r[0], r[1], r[2], r[3]);
+		UART_OutString(buffer);
+	}
 	
 }
 
@@ -171,7 +197,7 @@ void Timer1A_Handler(void){
   //Clear interrupt flag
 	TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	
-	// Copy window of data
+	// Copy window of data for analysis
 	memcpy(emg0T, emg0, sizeof(emg0));
 	memcpy(emg1T, emg1, sizeof(emg1));
 	memcpy(emg2T, emg2, sizeof(emg2));
@@ -208,7 +234,7 @@ void Timer1A_Handler(void){
 	feats[7] = feats[7]/(wl-1);
 	
 	// LDA_Predict
-	offset = 0;
+	int offset = 0;
 	for (int i=0; i<COLUMNS; i++){
 		for(int j=0; j<ROWS; j++){
 			prob[i] = prob[i] + feats[j]*Wg[j+offset];
@@ -246,9 +272,22 @@ void Timer1A_Handler(void){
 		prediction = 7;
 	}
 	
-	// Send predictions to Tera Term
-	sprintf(buffer, "%d\t\t\t\t\t\t\t\t\t\t\n", prediction);
-	//UART_OutString(buffer);
+	// Check status of button
+	if(GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_4)==0x00){  // SW1 is pressed
+		GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0x02);   // Red light is on
+		GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0x00);   // Send EMG data
+		bOut = 0;
+	}else if(GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_0)==0x00){  // SW2 is pressed
+		GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0x00);         // Blue light is on
+		GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0x04);         // Send predictions
+		bOut = 1;
+	}
+	
+	// Send gesture predictions
+	if(bOut == 1){
+		sprintf(buffer, "%d\t\t\t\t\t\t\t\t\t\t\n", prediction);
+	  UART_OutString(buffer);
+	}
 	
 }
 
@@ -261,6 +300,7 @@ int main(void){
 	IntPriorityGroupingSet(0x03);  
 	
 	// Initialize
+	Init_Buttons();
 	Init_UART();
 	Init_ADC();
 	Init_Timer(8000000);  // wi = 100ms
@@ -269,4 +309,5 @@ int main(void){
 	// Forever while loop
   while(1){
   }
+	
 }
