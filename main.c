@@ -272,7 +272,7 @@ void Timer1A_Handler(void){
 		prediction = 7;
 	}
 	
-	// Check status of button
+	// Check status of button (Turn on LED)
 	if(GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_4)==0x00){  // SW1 is pressed
 		GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0x02);   // Red light is on
 		GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0x00);   // Send EMG data
@@ -285,7 +285,7 @@ void Timer1A_Handler(void){
 	
 	// Send gesture predictions
 	if(bOut == 1){
-		sprintf(buffer, "%d\t\t\t\t\t\t\t\t\t\t\n", prediction);
+		sprintf(buffer, "%d", prediction);
 	  UART_OutString(buffer);
 	}
 	
