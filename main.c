@@ -71,7 +71,6 @@ void Init_Timer(unsigned long period){
 
 //*****************************************************************************
 // Interrupt Handlers
-
 void Timer1A_Handler(void){
   //Clear interrupt flag
 	TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
@@ -100,7 +99,6 @@ int main(void){
 	IntMasterEnable();             
 	
 	// Forever while loop
-  while(1){
-  }
+  while(1){}
 	
 }
