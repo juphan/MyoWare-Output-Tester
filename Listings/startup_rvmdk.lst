@@ -257,13 +257,14 @@ ARM Macro Assembler    Page 4
                                                             ; ADC1 Sequence 0
   151 00000104 00000000        DCD              IntDefaultHandler 
                                                             ; ADC1 Sequence 1
-  152 00000108 00000000        DCD              ADC1_Handler ; ADC1 Sequence 2
+  152 00000108 00000000        DCD              IntDefaultHandler 
 
 
 
 ARM Macro Assembler    Page 5 
 
 
+                                                            ; ADC1 Sequence 2
   153 0000010C 00000000        DCD              IntDefaultHandler 
                                                             ; ADC1 Sequence 3
   154 00000110 00000000        DCD              0           ; Reserved
@@ -322,13 +323,13 @@ ARM Macro Assembler    Page 5
   193 000001AC 00000000        DCD              0           ; Reserved
   194 000001B0 00000000        DCD              IntDefaultHandler ; Timer 5 sub
                                                             timer A
-  195 000001B4 00000000        DCD              IntDefaultHandler ; Timer 5 sub
 
 
 
 ARM Macro Assembler    Page 6 
 
 
+  195 000001B4 00000000        DCD              IntDefaultHandler ; Timer 5 sub
                                                             timer B
   196 000001B8 00000000        DCD              IntDefaultHandler ; Wide Timer 
                                                             0 subtimer A
@@ -387,13 +388,13 @@ ARM Macro Assembler    Page 6
                                                             ; GPIO Port P7
   226 00000230 00000000        DCD              IntDefaultHandler ; GPIO Port Q
                                                              (Summary or Q0)
-  227 00000234 00000000        DCD              IntDefaultHandler 
 
 
 
 ARM Macro Assembler    Page 7 
 
 
+  227 00000234 00000000        DCD              IntDefaultHandler 
                                                             ; GPIO Port Q1
   228 00000238 00000000        DCD              IntDefaultHandler 
                                                             ; GPIO Port Q2
@@ -452,13 +453,13 @@ ARM Macro Assembler    Page 7
   257 0000026C         ;
   258 0000026C         ; Note that this does not use DriverLib since it might n
                        ot be included
-  259 0000026C         ; in this project.
 
 
 
 ARM Macro Assembler    Page 8 
 
 
+  259 0000026C         ; in this project.
   260 0000026C         ;
   261 0000026C F64E 5088       MOVW             R0, #0xED88
   262 00000270 F2CE 0000       MOVT             R0, #0xE000
@@ -517,13 +518,13 @@ ARM Macro Assembler    Page 8
                        ***********************
   302 00000284         IntDefaultHandler
   303 00000284 E7FE            B                IntDefaultHandler
-  304 00000286         
 
 
 
 ARM Macro Assembler    Page 9 
 
 
+  304 00000286         
   305 00000286         ;*******************************************************
                        ***********************
   306 00000286         ;
@@ -582,13 +583,13 @@ ARM Macro Assembler    Page 9
   351 0000000C         ; Tell the assembler that we're done.
   352 0000000C         ;
   353 0000000C         ;*******************************************************
-                       ***********************
 
 
 
 ARM Macro Assembler    Page 10 
 
 
+                       ***********************
   354 0000000C                 END
               00000000 
               00000100 
@@ -752,6 +753,7 @@ Relocatable symbols
       At line 149 in file startup_rvmdk.S
       At line 150 in file startup_rvmdk.S
       At line 151 in file startup_rvmdk.S
+      At line 152 in file startup_rvmdk.S
       At line 153 in file startup_rvmdk.S
       At line 156 in file startup_rvmdk.S
       At line 157 in file startup_rvmdk.S
@@ -800,13 +802,13 @@ Relocatable symbols
       At line 228 in file startup_rvmdk.S
       At line 229 in file startup_rvmdk.S
       At line 230 in file startup_rvmdk.S
-      At line 231 in file startup_rvmdk.S
 
 
 
 ARM Macro Assembler    Page 3 Alphabetic symbol ordering
 Relocatable symbols
 
+      At line 231 in file startup_rvmdk.S
       At line 232 in file startup_rvmdk.S
       At line 233 in file startup_rvmdk.S
       At line 234 in file startup_rvmdk.S
@@ -914,8 +916,8 @@ Symbol: ADC1_Handler
    Definitions
       At line 81 in file startup_rvmdk.S
    Uses
-      At line 152 in file startup_rvmdk.S
-Comment: ADC1_Handler used once
+      None
+Comment: ADC1_Handler unused
 Timer1A_Handler 00000000
 
 Symbol: Timer1A_Handler
